@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8"/>
+<title>Budhjältarna – Zonkarta Stockholm</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+
+body{
+  font-family:'Barlow',sans-serif;
+  background:#0d1520;
+  color:#cde;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+
+/* ── TOP BAR ── */
+#topbar{
+  background:#080e18;
+  border-bottom:2px solid rgba(245,200,40,0.35);
+  padding:10px 20px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  flex-shrink:0;
+  z-index:1000;
+}
+#topbar h2{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:20px;font-weight:900;
+  letter-spacing:3px;color:#F8D433;flex:1;
+}
+.tbtn{
+  padding:8px 16px;border-radius:6px;border:none;cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:15px;font-weight:700;letter-spacing:1px;
+  transition:all .15s;
+}
+.tbtn:hover{opacity:.85;transform:translateY(-1px);}
+.tbtn-gold{background:#F8D433;color:#1a1000;}
+.tbtn-blue{background:#1e3a6e;color:#adf;border:1px solid rgba(100,160,255,0.3);}
+.tbtn-green{background:#1a4a2a;color:#afd;border:1px solid rgba(80,200,120,0.3);}
+.tbtn-red{background:#4a1a1a;color:#fcc;border:1px solid rgba(255,100,100,0.3);}
+
+/* ── MAIN LAYOUT ── */
+#main{
+  display:flex;
+  flex:1;
+  overflow:hidden;
+}
+
+/* ── ADMIN PANEL ── */
+#admin{
+  width:320px;
+  min-width:320px;
+  background:#0a1220;
+  border-right:1px solid rgba(60,100,180,0.25);
+  overflow-y:auto;
+  flex-shrink:0;
+}
+#admin::-webkit-scrollbar{width:4px;}
+#admin::-webkit-scrollbar-track{background:#0a1220;}
+#admin::-webkit-scrollbar-thumb{background:#2a4a80;border-radius:2px;}
+
+.admin-section{
+  padding:14px 16px;
+  border-bottom:1px solid rgba(60,100,180,0.15);
+}
+.admin-section h3{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px;font-weight:700;
+  letter-spacing:3px;
+  color:rgba(120,160,240,0.65);
+  text-transform:uppercase;
+  margin-bottom:10px;
+}
+
+.field{
+  display:flex;align-items:center;gap:8px;margin-bottom:7px;
+}
+.field label{
+  font-size:12px;color:rgba(150,190,255,0.7);
+  width:115px;flex-shrink:0;
+}
+.field input[type=text],
+.field input[type=number],
+.field select{
+  flex:1;background:rgba(255,255,255,0.05);
+  border:1px solid rgba(60,100,180,0.30);
+  border-radius:4px;color:#dde8ff;
+  font-family:'Barlow',sans-serif;font-size:12px;
+  padding:4px 8px;
+}
+.field input[type=range]{
+  flex:1;accent-color:#F8D433;height:3px;cursor:pointer;
+}
+.field .val{
+  font-size:11px;color:rgba(160,200,255,0.6);
+  width:28px;text-align:right;flex-shrink:0;
+}
+
+/* Zone rows */
+.zone-row{
+  display:flex;align-items:center;gap:8px;
+  margin-bottom:6px;
+  background:rgba(255,255,255,0.025);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:6px;padding:7px 8px;
+}
+.z-swatch{
+  width:20px;height:20px;border-radius:4px;
+  border:2px solid rgba(255,255,255,0.25);
+  cursor:pointer;flex-shrink:0;
+  transition:transform .15s;
+}
+.z-swatch:hover{transform:scale(1.2);}
+.cp-hidden{position:absolute;opacity:0;width:0;height:0;pointer-events:none;}
+.z-name{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:14px;font-weight:700;color:#fff;
+  width:58px;flex-shrink:0;
+}
+.z-op-slider{flex:1;accent-color:#F8D433;height:3px;}
+.z-op-val{font-size:11px;color:rgba(160,200,255,0.6);width:24px;text-align:right;}
+
+/* Label editor */
+.label-edit{
+  background:rgba(255,255,255,0.025);
+  border:1px solid rgba(255,255,255,0.05);
+  border-radius:6px;padding:8px;margin-bottom:6px;
+}
+.label-edit-head{
+  display:flex;align-items:center;gap:6px;margin-bottom:5px;
+}
+.label-edit-head .dot{width:12px;height:12px;border-radius:3px;}
+.label-edit-head span{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);
+}
+.label-edit input{
+  width:100%;
+  background:rgba(255,255,255,0.05);
+  border:1px solid rgba(60,100,180,0.25);
+  border-radius:4px;color:#dde8ff;
+  font-size:12px;padding:4px 7px;
+  margin-bottom:3px;
+  font-family:'Barlow',sans-serif;
+}
+.label-edit input:last-child{margin-bottom:0;}
+
+.bstyle-btns{display:flex;gap:5px;flex-wrap:wrap;}
+.bs-btn{
+  padding:3px 10px;border-radius:4px;
+  border:1px solid rgba(60,100,180,0.30);
+  background:rgba(255,255,255,0.04);
+  color:#9ab;font-size:11px;cursor:pointer;
+}
+.bs-btn.active{
+  background:rgba(248,212,51,0.12);
+  border-color:#F8D433;color:#F8D433;
+}
+
+/* ── MAP CONTAINER ── */
+#map-wrap{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+}
+
+#map{
+  width:100%;height:100%;
+}
+
+/* Zone overlay labels on map */
+.zone-div-label{
+  pointer-events:none;
+  text-align:center;
+  transform:translate(-50%,-50%);
+}
+.zdl-code{
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:900;
+  letter-spacing:1px;
+  line-height:1;
+  -webkit-text-stroke:5px rgba(5,8,12,0.88);
+  paint-order:stroke fill;
+  text-shadow:0 2px 12px rgba(0,0,0,0.9);
+}
+.zdl-sub{
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:600;
+  color:rgba(255,255,255,0.92);
+  -webkit-text-stroke:3px rgba(5,8,12,0.85);
+  paint-order:stroke fill;
+  text-shadow:0 1px 8px rgba(0,0,0,0.95);
+  white-space:nowrap;
+}
+
+/* Map header overlay */
+#map-header{
+  position:absolute;
+  top:0;left:0;right:0;
+  z-index:500;
+  background:linear-gradient(180deg,rgba(8,14,24,0.97) 0%,rgba(8,14,24,0.88) 75%,transparent 100%);
+  padding:14px 20px 28px;
+  pointer-events:none;
+}
+#map-header h1{
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:900;
+  letter-spacing:6px;
+  color:#F8D433;
+  text-shadow:3px 4px 0 rgba(100,60,0,0.45);
+  line-height:1;
+}
+#map-header p{
+  font-family:'Barlow Condensed',sans-serif;
+  font-weight:600;
+  letter-spacing:4px;
+  color:rgba(160,200,255,0.82);
+  font-style:italic;
+}
+#map-header .gold-rule{
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(248,212,51,0.4),transparent);
+  margin-top:5px;
+}
+
+/* Legend overlay */
+#legend-overlay{
+  position:absolute;
+  bottom:30px;left:22px;
+  z-index:500;
+  background:rgba(8,14,24,0.91);
+  border:1.5px solid rgba(100,150,230,0.38);
+  border-radius:12px;
+  padding:16px 20px;
+  backdrop-filter:blur(6px);
+  min-width:340px;
+}
+#legend-overlay h4{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px;font-weight:900;
+  letter-spacing:3px;
+  color:rgba(160,200,255,0.95);
+  margin-bottom:8px;
+  padding-bottom:6px;
+  border-bottom:1px solid rgba(100,150,230,0.22);
+}
+.leg-row{
+  display:flex;align-items:center;gap:9px;margin-bottom:5px;
+}
+.leg-sw{
+  width:18px;height:18px;border-radius:3px;
+  border:1.5px solid rgba(255,255,255,0.2);
+  flex-shrink:0;
+}
+.leg-zn{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:13px;font-weight:700;color:white;
+  width:58px;
+}
+.leg-desc{
+  font-size:12px;color:rgba(170,200,255,0.80);
+  font-family:'Barlow',sans-serif;
+}
+
+/* Compass */
+#compass-overlay{
+  position:absolute;top:20px;right:20px;
+  z-index:500;width:72px;height:72px;
+}
+
+/* Zoom controls */
+.leaflet-control-zoom{
+  border:none !important;
+  box-shadow:0 2px 12px rgba(0,0,0,0.5) !important;
+}
+.leaflet-control-zoom a{
+  background:rgba(8,14,24,0.92) !important;
+  color:#adf !important;
+  border:1px solid rgba(60,100,180,0.35) !important;
+  font-size:16px !important;
+}
+
+/* Export canvas (hidden) */
+#export-canvas{display:none;}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h2>🗺 BUDHJÄLTARNA — ZONKARTA EDITOR</h2>
+  <button class="tbtn tbtn-blue"  onclick="map.setView([59.334,18.065],11)">⌂ Återställ vy</button>
+  <button class="tbtn tbtn-green" onclick="exportSVG()">⬇ SVG (Illustrator)</button>
+  <button class="tbtn tbtn-gold"  onclick="exportPNG()">⬇ PNG (Print-ready)</button>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- ADMIN PANEL -->
+  <div id="admin">
+
+    <!-- Title -->
+    <div class="admin-section">
+      <h3>Titel &amp; Rubrik</h3>
+      <div class="field">
+        <label>Titel</label>
+        <input type="text" id="cfg-title" value="BUDHJÄLTARNA" oninput="updateHeader()"/>
+      </div>
+      <div class="field">
+        <label>Undertitel</label>
+        <input type="text" id="cfg-sub" value="ZONKARTA · STOCKHOLM · PREMIUM BUDTJÄNST" oninput="updateHeader()"/>
+      </div>
+      <div class="field">
+        <label>Titelstorlek</label>
+        <input type="range" id="cfg-ts" min="24" max="80" value="48" oninput="syncVal(this,'lbl-ts');updateHeader()"/>
+        <span class="val" id="lbl-ts">48</span>
+      </div>
+      <div class="field">
+        <label>Visa rubrik</label>
+        <select id="cfg-sh" onchange="updateHeader()">
+          <option value="1">Ja</option><option value="0">Nej</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Zone opacity -->
+    <div class="admin-section">
+      <h3>Zonopacitet (overlay)</h3>
+      <div id="zone-op-rows"></div>
+    </div>
+
+    <!-- Zone colors -->
+    <div class="admin-section">
+      <h3>Zonfärger (klicka för att ändra)</h3>
+      <div id="zone-color-rows"></div>
+    </div>
+
+    <!-- Border -->
+    <div class="admin-section">
+      <h3>Zonkanter</h3>
+      <div class="field">
+        <label>Kantbredd</label>
+        <input type="range" id="cfg-sw" min="1" max="10" value="3" oninput="syncVal(this,'lbl-sw');rebuildZones()"/>
+        <span class="val" id="lbl-sw">3</span>
+      </div>
+      <div class="field">
+        <label>Kantopacitet</label>
+        <input type="range" id="cfg-so" min="0" max="100" value="85" oninput="syncVal(this,'lbl-so');rebuildZones()"/>
+        <span class="val" id="lbl-so">85</span>
+      </div>
+      <div class="field" style="align-items:flex-start;">
+        <label style="margin-top:2px;">Kantstil</label>
+        <div class="bstyle-btns" id="bstyle-btns">
+          <button class="bs-btn active" onclick="setBStyle('solid',this)">Solid</button>
+          <button class="bs-btn" onclick="setBStyle('dashed',this)">Dashed</button>
+          <button class="bs-btn" onclick="setBStyle('dotted',this)">Dotted</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Labels -->
+    <div class="admin-section">
+      <h3>Etiketter på kartan</h3>
+      <div class="field">
+        <label>Zonetikettstorlek</label>
+        <input type="range" id="cfg-zls" min="14" max="52" value="28" oninput="syncVal(this,'lbl-zls');rebuildLabels()"/>
+        <span class="val" id="lbl-zls">28</span>
+      </div>
+      <div class="field">
+        <label>Visa undertextzon</label>
+        <select id="cfg-zsub" onchange="rebuildLabels()">
+          <option value="1">Ja</option><option value="0">Nej</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="admin-section">
+      <h3>Legend</h3>
+      <div class="field">
+        <label>Visa legend</label>
+        <select id="cfg-leg" onchange="updateLegend()">
+          <option value="1">Ja</option><option value="0">Nej</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Legendrubrik</label>
+        <input type="text" id="cfg-leg-title" value="ZONINDELNING — STOCKHOLM" oninput="updateLegend()"/>
+      </div>
+    </div>
+
+    <!-- Zone label text editor -->
+    <div class="admin-section">
+      <h3>Redigera zonetiketter</h3>
+      <div id="label-edit-rows"></div>
+    </div>
+
+  </div>
+
+  <!-- MAP -->
+  <div id="map-wrap">
+    <!-- Map header overlay -->
+    <div id="map-header">
+      <h1 id="mh-title">BUDHJÄLTARNA</h1>
+      <p id="mh-sub">ZONKARTA · STOCKHOLM · PREMIUM BUDTJÄNST</p>
+      <div class="gold-rule"></div>
+    </div>
+
+    <!-- Leaflet map -->
+    <div id="map"></div>
+
+    <!-- Compass -->
+    <svg id="compass-overlay" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="36" cy="36" r="34" fill="rgba(8,14,24,0.88)" stroke="rgba(100,150,230,0.5)" stroke-width="1.5"/>
+      <polygon points="36,6 29,38 43,38" fill="#e03030"/>
+      <polygon points="36,66 29,38 43,38" fill="#666"/>
+      <text x="36" y="4" text-anchor="middle" font-family="'Barlow Condensed',sans-serif" font-size="14" font-weight="900" fill="white">N</text>
+    </svg>
+
+    <!-- Legend -->
+    <div id="legend-overlay">
+      <h4 id="leg-title">ZONINDELNING — STOCKHOLM</h4>
+      <div id="leg-rows"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+// ZONE DATA – realistic Stockholm coordinates
+// ═══════════════════════════════════════════════════════
+const ZONE_DEFS = {
+  ZON1:{
+    label:'ZON 1',sub:'Stockholm City',color:'#F5C518',
+    latlng:[59.334,18.062],
+    coords:[
+      [59.358,17.970],[59.370,17.998],[59.378,18.038],[59.375,18.082],
+      [59.368,18.112],[59.355,18.130],[59.340,18.132],[59.326,18.118],
+      [59.315,18.090],[59.310,18.055],[59.312,18.018],[59.322,17.985],
+      [59.336,17.966],[59.348,17.960],
+    ]
+  },
+  ZON2N:{
+    label:'ZON 2N',sub:'Bromma · Solna · Danderyd',color:'#2E8CF5',
+    latlng:[59.396,18.030],
+    coords:[
+      [59.382,17.875],[59.400,17.898],[59.415,17.940],[59.425,17.990],
+      [59.428,18.048],[59.424,18.108],[59.414,18.162],[59.398,18.202],
+      [59.378,18.232],[59.358,18.245],[59.340,18.240],[59.340,18.132],
+      [59.355,18.130],[59.368,18.112],[59.375,18.082],[59.378,18.038],
+      [59.370,17.998],[59.358,17.970],[59.348,17.960],[59.336,17.966],
+      [59.322,17.985],[59.312,18.018],[59.310,18.055],[59.308,17.998],
+      [59.305,17.962],[59.305,17.928],[59.312,17.898],[59.325,17.872],
+      [59.342,17.860],[59.360,17.858],[59.372,17.865],
+    ]
+  },
+  ZON2S:{
+    label:'ZON 2S',sub:'Hägersten · Enskede · Nacka',color:'#12C2DC',
+    latlng:[59.312,18.210],
+    coords:[
+      [59.312,18.018],[59.310,18.055],[59.315,18.090],[59.326,18.118],
+      [59.340,18.132],[59.340,18.240],[59.348,18.280],[59.352,18.315],
+      [59.345,18.348],[59.330,18.368],[59.312,18.375],[59.295,18.362],
+      [59.280,18.338],[59.268,18.305],[59.262,18.268],[59.262,18.228],
+      [59.268,18.192],[59.278,18.162],[59.280,18.128],[59.278,18.092],
+      [59.282,18.062],[59.292,18.040],[59.305,18.025],
+    ]
+  },
+  ZON3N:{
+    label:'ZON 3N',sub:'Täby · Sollentuna · Kista · Vällingby',color:'#22B84A',
+    latlng:[59.462,17.988],
+    coords:[
+      [59.448,17.798],[59.468,17.835],[59.485,17.890],[59.495,17.950],
+      [59.498,18.018],[59.495,18.090],[59.485,18.158],[59.468,18.218],
+      [59.448,18.265],[59.422,18.298],[59.398,18.315],[59.378,18.315],
+      [59.358,18.245],[59.378,18.232],[59.398,18.202],[59.414,18.162],
+      [59.424,18.108],[59.428,18.048],[59.425,17.990],[59.415,17.940],
+      [59.400,17.898],[59.382,17.875],[59.372,17.865],[59.360,17.858],
+      [59.348,17.848],[59.338,17.830],[59.330,17.808],[59.325,17.782],
+      [59.325,17.755],[59.332,17.730],[59.345,17.712],[59.362,17.702],
+      [59.382,17.700],[59.402,17.708],[59.418,17.722],[59.432,17.748],[59.440,17.775],
+    ]
+  },
+  ZON3S:{
+    label:'ZON 3S',sub:'Farsta · Tyresö · Saltsjöbaden · Älta',color:'#55D955',
+    latlng:[59.268,18.362],
+    coords:[
+      [59.282,18.062],[59.278,18.092],[59.280,18.128],[59.278,18.162],
+      [59.268,18.192],[59.262,18.228],[59.262,18.268],[59.268,18.305],
+      [59.280,18.338],[59.295,18.362],[59.312,18.375],[59.330,18.368],
+      [59.345,18.348],[59.352,18.315],[59.360,18.352],[59.365,18.388],
+      [59.360,18.425],[59.348,18.458],[59.330,18.478],[59.308,18.485],
+      [59.288,18.472],[59.270,18.445],[59.255,18.408],[59.244,18.365],
+      [59.238,18.318],[59.238,18.270],[59.245,18.225],[59.252,18.182],
+      [59.255,18.138],[59.258,18.095],[59.265,18.058],[59.275,18.035],
+    ]
+  },
+  ZON4N:{
+    label:'ZON 4N',sub:'Upplands Väsby · Jakobsberg · Hässelby',color:'#F07828',
+    latlng:[59.535,17.968],
+    coords:[
+      [59.545,17.720],[59.565,17.772],[59.582,17.842],[59.595,17.922],
+      [59.600,18.010],[59.598,18.100],[59.588,18.188],[59.568,18.268],
+      [59.542,18.332],[59.512,18.382],[59.480,18.412],[59.452,18.422],
+      [59.428,18.418],[59.422,18.298],[59.448,18.265],[59.468,18.218],
+      [59.485,18.158],[59.495,18.090],[59.498,18.018],[59.495,17.950],
+      [59.485,17.890],[59.468,17.835],[59.448,17.798],[59.440,17.775],
+      [59.432,17.748],[59.418,17.722],[59.402,17.708],[59.382,17.700],
+      [59.362,17.702],[59.345,17.712],[59.335,17.690],[59.328,17.662],
+      [59.328,17.632],[59.338,17.608],[59.352,17.592],[59.372,17.582],
+      [59.395,17.580],[59.418,17.588],[59.440,17.602],[59.460,17.622],
+      [59.478,17.648],[59.495,17.672],[59.518,17.692],
+    ]
+  },
+  ZON4S:{
+    label:'ZON 4S',sub:'Huddinge · Haninge · Tumba · Norsborg',color:'#E02828',
+    latlng:[59.222,18.355],
+    coords:[
+      [59.258,18.095],[59.255,18.138],[59.252,18.182],[59.245,18.225],
+      [59.238,18.270],[59.238,18.318],[59.244,18.365],[59.255,18.408],
+      [59.270,18.445],[59.288,18.472],[59.308,18.485],[59.330,18.478],
+      [59.342,18.512],[59.348,18.548],[59.342,18.585],[59.328,18.615],
+      [59.308,18.635],[59.282,18.642],[59.255,18.628],[59.230,18.602],
+      [59.210,18.568],[59.195,18.525],[59.185,18.478],[59.182,18.428],
+      [59.188,18.380],[59.198,18.335],[59.205,18.288],[59.208,18.240],
+      [59.210,18.192],[59.215,18.148],[59.225,18.108],[59.238,18.075],
+      [59.250,18.058],
+    ]
+  },
+  ZON5:{
+    label:'ZON 5',sub:'Ekerö · Gustavsberg · Vaxholm · Åkersberg',color:'#9944DD',
+    latlng:[59.490,18.680],
+    coords:[
+      [59.655,17.562],[59.660,17.750],[59.665,17.950],[59.662,18.150],
+      [59.652,18.345],[59.630,18.525],[59.600,18.680],[59.560,18.800],
+      [59.512,18.878],[59.460,18.918],[59.408,18.928],[59.355,18.905],
+      [59.305,18.858],[59.260,18.795],[59.220,18.722],[59.185,18.648],
+      [59.162,18.568],[59.148,18.480],[59.142,18.388],[59.142,18.295],
+      [59.148,18.202],[59.155,18.108],[59.162,18.012],[59.168,17.912],
+      [59.175,17.808],[59.185,17.702],[59.198,17.595],[59.218,17.492],
+      [59.245,17.402],[59.278,17.335],[59.315,17.295],[59.352,17.282],
+      [59.390,17.295],[59.422,17.328],[59.448,17.375],[59.465,17.428],
+      [59.478,17.548],[59.460,17.558],[59.440,17.540],[59.418,17.530],
+      [59.395,17.528],[59.372,17.532],[59.352,17.545],[59.335,17.565],
+      [59.325,17.592],[59.328,17.632],[59.328,17.662],[59.335,17.690],
+      [59.345,17.712],[59.332,17.730],[59.325,17.755],[59.325,17.782],
+      [59.330,17.808],[59.338,17.830],[59.348,17.848],[59.360,17.858],
+      [59.342,17.860],[59.325,17.872],[59.312,17.898],[59.305,17.928],
+      [59.305,17.962],[59.308,17.998],[59.310,18.055],[59.305,18.025],
+      [59.282,18.062],[59.265,18.058],[59.258,18.095],[59.250,18.058],
+      [59.238,18.075],[59.225,18.108],[59.215,18.148],[59.210,18.192],
+    ]
+  },
+};
+
+const LEGEND_ROWS = [
+  ['ZON1', 'ZON 1',  'Stockholm City'],
+  ['ZON2N','ZON 2N', 'Bromma · Solna · Sundbyberg · Danderyd'],
+  ['ZON2S','ZON 2S', 'Hägersten · Enskede · Nacka'],
+  ['ZON3N','ZON 3N', 'Täby · Sollentuna · Kista · Vällingby'],
+  ['ZON3S','ZON 3S', 'Farsta · Tyresö · Saltsjöbaden · Älta'],
+  ['ZON4N','ZON 4N', 'Upplands Väsby · Jakobsberg · Hässelby · Arninge'],
+  ['ZON4S','ZON 4S', 'Huddinge · Haninge · Tumba · Norsborg'],
+  ['ZON5', 'ZON 5',  'Ekerö · Gustavsberg · Vaxholm · Åkersberg'],
+];
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+const S = {
+  zoneOpacity: Object.fromEntries(Object.keys(ZONE_DEFS).map(k=>[k,0.18])),
+  zoneColors:  Object.fromEntries(Object.entries(ZONE_DEFS).map(([k,v])=>[k,v.color])),
+  zoneLabels:  Object.fromEntries(Object.entries(ZONE_DEFS).map(([k,v])=>[k,v.label])),
+  zoneSubs:    Object.fromEntries(Object.entries(ZONE_DEFS).map(([k,v])=>[k,v.sub])),
+  strokeWidth: 3,
+  strokeOpacity: 0.85,
+  strokeDash: 'solid',
+  zoneLabelSize: 28,
+  showZoneSub: true,
+};
+
+// ═══════════════════════════════════════════════════════
+// LEAFLET MAP SETUP
+// ═══════════════════════════════════════════════════════
+const map = L.map('map',{
+  center:[59.334,18.065],
+  zoom:11,
+  zoomControl:true,
+  attributionControl:true,
+});
+
+// TomTom-style tiles (matching the screenshot exactly)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'©OpenStreetMap ©Carto',
+  subdomains:'abcd',
+  maxZoom:19,
+}).addTo(map);
+
+// ═══════════════════════════════════════════════════════
+// ZONE POLYGONS
+// ═══════════════════════════════════════════════════════
+const zoneLayers = {};
+const zoneOrder = ['ZON5','ZON4N','ZON4S','ZON3N','ZON3S','ZON2N','ZON2S','ZON1'];
+
+function hexToRgba(hex, a) {
+  const r=parseInt(hex.slice(1,3),16);
+  const g=parseInt(hex.slice(3,5),16);
+  const b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function dashArray() {
+  if(S.strokeDash==='dashed') return '12 8';
+  if(S.strokeDash==='dotted') return '3 6';
+  return null;
+}
+
+function rebuildZones() {
+  // Remove existing
+  for(const k of Object.keys(zoneLayers)){
+    if(zoneLayers[k]) map.removeLayer(zoneLayers[k]);
+  }
+  for(const key of zoneOrder){
+    const def = ZONE_DEFS[key];
+    const color = S.zoneColors[key];
+    const op = S.zoneOpacity[key];
+    const latlngs = def.coords.map(([lat,lng])=>L.latLng(lat,lng));
+    const poly = L.polygon(latlngs,{
+      fillColor: color,
+      fillOpacity: op,
+      color: color,
+      weight: S.strokeWidth,
+      opacity: S.strokeOpacity,
+      dashArray: dashArray(),
+      lineCap:'round',
+      lineJoin:'round',
+    });
+    poly.addTo(map);
+    zoneLayers[key] = poly;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ZONE LABELS (DivIcon)
+// ═══════════════════════════════════════════════════════
+const labelMarkers = {};
+
+function rebuildLabels() {
+  for(const k of Object.keys(labelMarkers)){
+    if(labelMarkers[k]) map.removeLayer(labelMarkers[k]);
+  }
+  const fs = +document.getElementById('cfg-zls').value;
+  const showSub = document.getElementById('cfg-zsub').value==='1';
+
+  for(const [key, def] of Object.entries(ZONE_DEFS)){
+    const color = S.zoneColors[key];
+    const code  = S.zoneLabels[key];
+    const sub   = S.zoneSubs[key];
+
+    const html = `
+      <div class="zone-div-label">
+        <div class="zdl-code" style="font-size:${fs}px;color:${color};">${code}</div>
+        ${showSub ? `<div class="zdl-sub" style="font-size:${Math.round(fs*0.52)}px;">${sub}</div>` : ''}
+      </div>`;
+
+    const icon = L.divIcon({
+      html,
+      className:'',
+      iconSize:[220,60],
+      iconAnchor:[110,30],
+    });
+    const m = L.marker(def.latlng,{icon,interactive:false,zIndexOffset:1000});
+    m.addTo(map);
+    labelMarkers[key]=m;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// HEADER
+// ═══════════════════════════════════════════════════════
+function updateHeader() {
+  const title = document.getElementById('cfg-title').value;
+  const sub   = document.getElementById('cfg-sub').value;
+  const ts    = document.getElementById('cfg-ts').value;
+  const show  = document.getElementById('cfg-sh').value==='1';
+  document.getElementById('mh-title').textContent = title;
+  document.getElementById('mh-title').style.fontSize = ts+'px';
+  document.getElementById('mh-sub').textContent = sub;
+  document.getElementById('map-header').style.display = show ? '' : 'none';
+}
+
+// ═══════════════════════════════════════════════════════
+// LEGEND
+// ═══════════════════════════════════════════════════════
+function updateLegend() {
+  const show = document.getElementById('cfg-leg').value==='1';
+  const title = document.getElementById('cfg-leg-title').value;
+  document.getElementById('legend-overlay').style.display = show ? '' : 'none';
+  document.getElementById('leg-title').textContent = title;
+}
+
+function buildLegendRows() {
+  const el = document.getElementById('leg-rows');
+  el.innerHTML = LEGEND_ROWS.map(([key,zn,desc])=>`
+    <div class="leg-row">
+      <div class="leg-sw" id="lsw-${key}" style="background:${S.zoneColors[key]};border-color:${S.zoneColors[key]};"></div>
+      <span class="leg-zn">${zn}</span>
+      <span class="leg-desc">${desc}</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// BUILD ADMIN CONTROLS
+// ═══════════════════════════════════════════════════════
+function buildAdminControls() {
+  const opDiv    = document.getElementById('zone-op-rows');
+  const colorDiv = document.getElementById('zone-color-rows');
+  const labelDiv = document.getElementById('label-edit-rows');
+
+  for(const [key, def] of Object.entries(ZONE_DEFS)){
+    // Opacity row
+    opDiv.innerHTML += `
+      <div class="zone-row">
+        <div class="z-swatch" id="sw-${key}" style="background:${def.color}" onclick="document.getElementById('cp-${key}').click()"></div>
+        <input type="color" class="cp-hidden" id="cp-${key}" value="${def.color}"
+          onchange="S.zoneColors['${key}']=this.value; document.getElementById('sw-${key}').style.background=this.value; document.getElementById('sw2-${key}').style.background=this.value; rebuildZones(); rebuildLabels(); buildLegendRows();"/>
+        <span class="z-name">${def.label}</span>
+        <input type="range" class="z-op-slider" min="0" max="50" value="18"
+          oninput="S.zoneOpacity['${key}']=+this.value/100; document.getElementById('ov-${key}').textContent=this.value; rebuildZones()"/>
+        <span class="z-op-val" id="ov-${key}">18</span>
+      </div>`;
+
+    // Color row (duplicate for color section)
+    colorDiv.innerHTML += `
+      <div class="zone-row" style="cursor:pointer" onclick="document.getElementById('cp-${key}').click()">
+        <div class="z-swatch" id="sw2-${key}" style="background:${def.color}"></div>
+        <span class="z-name">${def.label}</span>
+        <span style="font-size:11px;color:rgba(160,200,255,0.5);margin-left:auto;">${def.color}</span>
+      </div>`;
+
+    // Label editor
+    labelDiv.innerHTML += `
+      <div class="label-edit">
+        <div class="label-edit-head">
+          <div class="dot" style="background:${def.color}"></div>
+          <span>${def.label}</span>
+        </div>
+        <input type="text" value="${def.label}" placeholder="Kodetikett"
+          oninput="S.zoneLabels['${key}']=this.value; rebuildLabels()"/>
+        <input type="text" value="${def.sub}" placeholder="Orter..."
+          oninput="S.zoneSubs['${key}']=this.value; rebuildLabels()"/>
+      </div>`;
+  }
+}
+
+function setBStyle(s,btn){
+  S.strokeDash=s;
+  document.querySelectorAll('.bs-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  rebuildZones();
+}
+function syncVal(el,id){
+  document.getElementById(id).textContent=el.value;
+  S.strokeWidth=+document.getElementById('cfg-sw').value;
+  S.strokeOpacity=+document.getElementById('cfg-so').value/100;
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT SVG
+// ═══════════════════════════════════════════════════════
+function exportSVG(){
+  // Build a standalone SVG with all zone data
+  const W=2400,H=1700;
+  const LAT0=59.66,LAT1=59.14,LNG0=17.45,LNG1=18.85;
+  const MX0=0,MY0=160,MW=W,MH=H-160;
+
+  function gp(lat,lng){
+    const x=MX0+(lng-LNG0)/(LNG1-LNG0)*MW;
+    const y=MY0+(lat-LAT0)/(LAT1-LAT0)*MH;
+    return [x.toFixed(1),y.toFixed(1)];
+  }
+
+  let paths='';
+  let labels='';
+
+  for(const key of zoneOrder){
+    const def=ZONE_DEFS[key];
+    const color=S.zoneColors[key];
+    const op=S.zoneOpacity[key];
+    const pts=def.coords.map(([lat,lng])=>gp(lat,lng).join(',')).join(' ');
+    const dash=S.strokeDash==='dashed'?'stroke-dasharray="12 8"':S.strokeDash==='dotted'?'stroke-dasharray="3 6"':'';
+    paths+=`<polygon id="${key}" points="${pts}" fill="${color}" fill-opacity="${op.toFixed(2)}" stroke="${color}" stroke-width="${S.strokeWidth}" stroke-opacity="${S.strokeOpacity.toFixed(2)}" stroke-linejoin="round" ${dash}/>\n`;
+
+    const [lx,ly]=gp(...def.latlng);
+    const code=S.zoneLabels[key];
+    const sub=S.zoneSubs[key];
+    const fs=+document.getElementById('cfg-zls').value*1.5;
+    labels+=`<text x="${lx}" y="${ly}" text-anchor="middle" font-size="${fs}" font-weight="900" font-family="'Barlow Condensed',Arial Narrow,sans-serif" fill="${color}" paint-order="stroke" stroke="rgba(5,8,12,0.92)" stroke-width="${fs*0.28}">${code}</text>\n`;
+    labels+=`<text x="${lx}" y="${+ly+fs*0.7}" text-anchor="middle" font-size="${fs*0.52}" font-weight="600" font-family="'Barlow Condensed',Arial Narrow,sans-serif" fill="rgba(255,255,255,0.95)" paint-order="stroke" stroke="rgba(5,8,12,0.88)" stroke-width="${fs*0.18}">${sub}</text>\n`;
+  }
+
+  const title=document.getElementById('cfg-title').value;
+  const subTxt=document.getElementById('cfg-sub').value;
+
+  const svg=`<?xml version="1.0" encoding="UTF-8"?>
+<!-- BUDHJÄLTARNA Zonkarta – Adobe Illustrator SVG (A5 Landscape) -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+  viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#d4e8c4"/>
+    <stop offset="1" stop-color="#c8e0b8"/>
+  </linearGradient>
+  <filter id="ds"><feDropShadow dx="2" dy="3" stdDeviation="6" flood-opacity="0.3"/></filter>
+</defs>
+<!-- Background (land) -->
+<rect width="${W}" height="${H}" fill="url(#bg)"/>
+<!-- Map area placeholder note: open in Illustrator and place actual map tile behind zone group -->
+<rect x="0" y="${160}" width="${W}" height="${H-160}" fill="#d4e8c0" opacity="0.4"/>
+<!-- ZONES -->
+<g id="zone-overlays">
+${paths}</g>
+<!-- ZONE LABELS -->
+<g id="zone-labels">
+${labels}</g>
+<!-- HEADER -->
+<rect x="0" y="0" width="${W}" height="160" fill="#080e18"/>
+<line x1="0" y1="160" x2="${W}" y2="160" stroke="rgba(248,212,51,0.4)" stroke-width="2"/>
+<text x="${W/2}" y="100" text-anchor="middle" font-size="80" font-weight="900" font-family="'Barlow Condensed',Arial Narrow,sans-serif" letter-spacing="6" fill="#F8D433" filter="url(#ds)">${title}</text>
+<text x="${W/2}" y="142" text-anchor="middle" font-size="26" font-family="'Barlow Condensed',Arial Narrow,sans-serif" letter-spacing="4" fill="rgba(160,200,255,0.82)" font-style="italic">${subTxt}</text>
+<!-- FRAME -->
+<rect x="5" y="5" width="${W-10}" height="${H-10}" fill="none" stroke="#1c2a3f" stroke-width="12"/>
+<rect x="16" y="16" width="${W-32}" height="${H-32}" fill="none" stroke="rgba(248,212,51,0.28)" stroke-width="2"/>
+</svg>`;
+
+  const blob=new Blob([svg],{type:'image/svg+xml'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='budhjaltarna_zonkarta.svg';
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT PNG (screenshot of map area)
+// ═══════════════════════════════════════════════════════
+function exportPNG(){
+  alert('PNG-export: Ta en skärmbild av kartområdet (Win: Win+Shift+S / Mac: Cmd+Shift+4) och spara. För fullkvalitet, använd SVG-export till Illustrator.');
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+buildAdminControls();
+rebuildZones();
+rebuildLabels();
+buildLegendRows();
+updateLegend();
+</script>
+</body>
+</html>
